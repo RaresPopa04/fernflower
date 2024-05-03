@@ -1,6 +1,7 @@
 // Copyright 2000-2023 JetBrains s.r.o. and contributors. Use of this source code is governed by the Apache 2.0 license.
 package org.jetbrains.java.decompiler;
 
+import org.jetbrains.java.decompiler.main.ClassWriter;
 import org.jetbrains.java.decompiler.main.DecompilerContext;
 import org.jetbrains.java.decompiler.main.extern.ClassFormatException;
 import org.jetbrains.java.decompiler.main.extern.IFernflowerPreferences;
@@ -16,6 +17,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -161,9 +163,13 @@ public class SingleClassesTest {
   //ecj doesn't support here, because it produces code with unnecessary assignments,
   //which can confuse decompiler with ordinary ones
   @Test public void testSimpleInstanceOfRecordPatternJavac() { doTest("pkg/TestSimpleInstanceOfRecordPatternJavac"); }
+  @Test public void testSimpleInstanceOfRecordPatternJavacRedundant() throws IOException { doTestRedundant("pkg/TestSimpleInstanceOfRecordPatternJavac"); }
   @Test public void testComplexInstanceOfRecordPatternJavac() { doTest("pkg/TestComplexInstanceOfRecordPatternJavac"); }
+  @Test public void testComplexInstanceOfRecordPatternJavacRedundant() throws IOException { doTestRedundant("pkg/TestComplexInstanceOfRecordPatternJavac"); }
   @Test public void testSwitchWithDeconstructionsWithoutNestedJavac() { doTest("pkg/TestSwitchWithDeconstructionsWithoutNestedJavac"); }
+  @Test public void testSwitchWithDeconstructionsWithoutNestedJavacRedundant() throws IOException { doTestRedundant("pkg/TestSwitchWithDeconstructionsWithoutNestedJavac"); }
   @Test public void testSwitchNestedDeconstructionJavac() { doTest("pkg/TestSwitchNestedDeconstructionsJavac"); }
+  @Test public void testSwitchNestedDeconstructionJavacRedundant() throws IOException { doTestRedundant("pkg/TestSwitchNestedDeconstructionsJavac"); }
 
   // TODO: fix all below
   //@Test public void testUnionType() { doTest("pkg/TestUnionType"); }
@@ -176,10 +182,15 @@ public class SingleClassesTest {
   @Test public void testNamedSuspendFun2Kt() { doTest("pkg/TestNamedSuspendFun2Kt"); }
   @Test public void testGenericArgs() { doTest("pkg/TestGenericArgs"); }
   @Test public void testRecordEmpty() { doTest("records/TestRecordEmpty"); }
+  @Test public void testRecordEmptyRedundant() throws IOException { doTestRedundant("records/TestRecordEmpty"); }
   @Test public void testRecordSimple() { doTest("records/TestRecordSimple"); }
+  @Test public void testRecordSimpleRedundant() throws IOException { doTestRedundant("records/TestRecordSimple"); }
   @Test public void testRecordVararg() { doTest("records/TestRecordVararg"); }
+  @Test public void testRecordVarargRedundant() throws IOException { doTestRedundant("records/TestRecordVararg"); }
   @Test public void testRecordGenericVararg() { doTest("records/TestRecordGenericVararg"); }
+  @Test public void testRecordGenericVarargRedundant() throws IOException { doTestRedundant("records/TestRecordGenericVararg"); }
   @Test public void testRecordAnno() { doTest("records/TestRecordAnno"); }
+  @Test public void testRecordAnnoRedundant() throws IOException { doTestRedundant("records/TestRecordAnno"); }
   @Test public void testRootWithClassInner() { doTest("sealed/RootWithClassInner"); }
   @Test public void testRootWithInterfaceInner() { doTest("sealed/RootWithInterfaceInner"); }
   @Test public void testRootWithClassOuter() { doTest("sealed/RootWithClassOuter",
@@ -276,6 +287,45 @@ public class SingleClassesTest {
     var referenceFile = fixture.getTestDataDir().resolve("results/" + classFile.getFileName().toString().replace(".class", ".dec"));
     assertThat(referenceFile).isRegularFile();
     assertFilesEqual(referenceFile, decompiledFile);
+  }
+
+
+  private void doTestRedundant(String testFile, String... companionFiles) throws IOException {
+    DecompilerContext.setProperty(IFernflowerPreferences.DECOMPILE_RECORDS_CLI, "1");
+    var decompiler = fixture.getDecompiler();
+
+    var classFile = fixture.getTestDataDir().resolve("classes/" + testFile + ".class");
+    assertThat(classFile).isRegularFile();
+
+    for (var file : collectClasses(classFile)) {
+      decompiler.addSource(file.toFile());
+    }
+    for (String companionFile : companionFiles) {
+      var companionClassFile = fixture.getTestDataDir().resolve("classes/" + companionFile + ".class");
+      assertThat(companionClassFile).isRegularFile();
+      for (var file : collectClasses(companionClassFile)) {
+        decompiler.addSource(file.toFile());
+      }
+    }
+
+    decompiler.decompileContext();
+
+    var decompiledFile = fixture.getTargetDir().resolve(classFile.getFileName().toString().replace(".class", ".java"));
+
+
+    assertThat(decompiledFile).isRegularFile();
+    assertTrue(Files.isRegularFile(decompiledFile));
+    String referenceFileName = classFile.getFileName().toString().split("\\.")[0];
+    referenceFileName+="Redundant";
+
+
+
+    var referenceFile = fixture.getTestDataDir().resolve("results/" + referenceFileName + ".dec");
+
+    assertThat(referenceFile).isRegularFile();
+    assertFilesEqual(referenceFile, decompiledFile);
+
+
   }
 
   static List<Path> collectClasses(Path classFile) {

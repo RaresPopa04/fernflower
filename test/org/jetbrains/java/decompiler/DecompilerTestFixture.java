@@ -58,7 +58,6 @@ public class DecompilerTestFixture {
     options.put(IFernflowerPreferences.LITERALS_AS_IS, "1");
     options.put(IFernflowerPreferences.UNIT_TEST_MODE, "1");
     options.putAll(customOptions);
-
     if (cancellationManager == null) {
       decompiler = new TestConsoleDecompiler(targetDir.toFile(), options);
     }

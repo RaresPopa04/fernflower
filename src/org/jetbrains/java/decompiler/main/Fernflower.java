@@ -33,6 +33,12 @@ public class Fernflower implements IDecompiledData {
     if (customProperties != null) {
       properties.putAll(customProperties);
     }
+    if(customProperties!=null){
+      String prop = System.getProperty("drc");
+      if(prop!=null){
+        properties.put(IFernflowerPreferences.DECOMPILE_RECORDS_CLI, prop);
+      }
+    }
 
     String level = (String)properties.get(IFernflowerPreferences.LOG_LEVEL);
     if (level != null) {
